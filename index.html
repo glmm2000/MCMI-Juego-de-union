@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>MCMI: Juego de unión</title>
+    <meta charset="utf-8" />
+</head>
+
+<body style="max-width: 1300px; margin: auto; margin-top: 10px;">
+    <p style="margin-bottom: 4px; margin-top: 5px; font-family: Verdana">INDICACIONES:</p>
+    <p style="margin: 0px; font-family: Verdana">En este juego encontrarás 5 afirmaciones y 10 respuestas. Debes unir correctamente cada afirmación de la columna de la izquierda con la respuesta que le corresponda de la columna de la derecha. Solo hay una respuesta correcta para cada afirmación, por lo que van a haber opciones extras que no tendrán par. Cuando termines, selecciona el botón de REVISAR para conocer tu puntaje. Recuerda que tienes 5 minutos ¡Suerte!</p>
+    <canvas id="gameScreen" width="1300" height="870"></canvas> 
+    <script>
+//style="border:1px solid #000000 max-width: 500px margin: auto"
+
+
+let canvas = document.getElementById("gameScreen");
+let ctx = canvas.getContext('2d');
+
+const WIDTH = 800;
+const HEIGHT = 500;
+const FRAME_WIDTH = 255;
+const FRAME_HEIGHT = 60;
+const TEXT_OFF = 4;
+const COLOR_NORMAL = "#d7fbeb";
+const COLOR_ACTIVE = "#98eab7";
+
+class Key {
+    constructor(x, y, value, question) {
+        this.x = x;
+        this.y = y;
+        this.value = value;
+        this.isActive = false;
+        this.question = question;
+        this.x2 = FRAME_WIDTH;
+        this.y2 = FRAME_HEIGHT;
+    }
+
+    draw() {
+        if(this.isActive) {
+            ctx.clearRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle = COLOR_ACTIVE;
+            ctx.fillRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle ='#000';
+            ctx.font = "16px Verdana";
+            ctx.fillText(this.value, this.x+10, this.y+this.y2/2+TEXT_OFF)
+        } else {
+            ctx.clearRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle = COLOR_NORMAL;
+            ctx.fillRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle ='#000';
+            ctx.font = "16px Verdana";
+            ctx.fillText(this.value, this.x+10, this.y+this.y2/2+TEXT_OFF)
+        }
+    }
+}
+
+class Definition {
+    constructor(x, y, value, answer, length) {
+        this.x = x;
+        this.y = y;
+        this.value = value;
+        this.isActive = false;
+        this.answer = answer;
+        this.x2 = length;
+        this.y2 = FRAME_HEIGHT;
+    }
+
+    draw() {
+        if(this.value.length > 70) {
+            ctx.font = "14px Verdana";
+        } else {
+            ctx.font = "16px Verdana";
+        }
+        if(this.isActive) {
+            ctx.clearRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle = COLOR_ACTIVE;
+            ctx.fillRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle ='#000';
+            ctx.fillText(this.value, this.x+10, this.y+this.y2/2+TEXT_OFF)
+        } else {
+            ctx.clearRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle = COLOR_NORMAL;
+            ctx.fillRect(this.x, this.y, this.x2, this.y2)
+            ctx.fillStyle ='#000';
+            ctx.fillText(this.value, this.x+10, this.y+this.y2/2+TEXT_OFF)
+        }
+    }
+}
+
+
+function drawArrow(context, from, to, radius) {
+    ctx.fillStyle ='#000';
+    let x_center = to.x - radius;
+    let y_center = to.y + to.y2/2;
+
+    let angle;
+    let x;
+    let y;
+
+    context.beginPath();
+
+    angle = Math.atan2((to.y + to.y2/2) - (from.y + from.y2/2), (to.x - radius) - (from.x + from.x2))
+    x = radius * Math.cos(angle) + x_center;
+    y = radius * Math.sin(angle) + y_center;
+
+    context.moveTo(x, y);
+
+    angle += (1.0/3.0) * (2 * Math.PI)
+    x = radius * Math.cos(angle) + x_center;
+    y = radius * Math.sin(angle) + y_center;
+
+    context.lineTo(x, y);
+
+    angle += (1.0/3.0) * (2 * Math.PI)
+    x = radius *Math.cos(angle) + x_center;
+    y = radius *Math.sin(angle) + y_center;
+
+    context.lineTo(x, y);
+
+    context.closePath();
+    context.fill();
+
+    context.beginPath(); 
+    context.moveTo(from.x + from.x2, from.y + from.y2/2);
+    context.lineTo(to.x - radius, to.y + to.y2/2);
+    context.stroke();
+
+    from.isActive = false;
+    to.isActive = false;
+    from.draw()
+    to.draw()
+
+}
+
+
+keyList = [];
+definitionList = [];
+
+keyValue = ["Índices modificadores",
+            "Su propósito es...", 
+            "Sus normas se dan en", 
+            "Son ventajas evaluativas",
+            "La prueba se invalida cuando"];
+definitionValue = ["Intervalos de confianza y desviación estándar ",
+                    "La prueba mide lo que dice medir y pasó por tres fases de validación",
+                    "Puntuaciones de prevalencia (PREV)", 
+                    "Escalas de validez, deseabilidad, devaluación y sinceridad", 
+                    "La edad es menor a 18 // no se indica el sexo ",
+                    "Predecir y diagnosticar trastornos", 
+                    "Cuando el evaluado aún no entra en la adolescencia y hay más de 150 ítems falsos",
+                    "Posee 175 ítems, rápida aplicación y puede ser tomada en distintas poblaciones con características variadas",
+                    "Escalas de confiabilidad, validez interna, devaluación y falsedad"];
+console.log(definitionValue.length)
+length = [400, 580, 320, 490, 400, 300, 610, 790, 545];
+keyQuestion = [1, 2, 3, 4, 5];
+definitionAnswer = [0, 0, 3, 1, 5, 2, 0, 4, 0];
+
+// draw keys
+for (let i = 0; i < keyValue.length; i++) {
+    keyList.push(new Key(50, 50+i*160, keyValue[i], keyQuestion[i]))
+};
+
+for (let i = 0; i < keyList.length; i++) {
+    keyList[i].draw()
+};
+
+// draw definitions
+for (let i = 0; i < definitionValue.length; i++) {
+    definitionList.push(new Definition(450, 50+i*80, definitionValue[i], definitionAnswer[i], length[i]))
+};
+
+for (let i = 0; i < definitionList.length; i++) {
+    definitionList[i].draw()
+};
+
+//submit button
+button = {
+    x: 300,
+    y: 800,
+    x2: 150,
+    y2: 30
+    }
+ctx.fillStyle ='#0AA';
+ctx.fillRect(button.x, button.y, button.x2, button.y2)
+ctx.fillStyle ='#FFF';
+ctx.font = "16px Verdana";
+ctx.fillText("REVISAR", button.x + 40, button.y + 20)
+
+let connections = [];
+
+
+// event listener for 'click' events
+canvas.addEventListener('click', event => {
+    let drawTo = false;
+    let drawFrom = false;
+    
+    let x = event.pageX - canvas.offsetLeft;
+    let y = event.pageY - canvas.offsetTop;
+    console.log(x, y)
+
+    let points = 0;
+    for (let i = 0; i < connections.length; i++) {
+        if(connections[i][0].question === connections[i][1].answer) {
+            points++
+        }
+    
+    }
+
+    if (y > button.y
+        && y < button.y + button.y2
+        && x > button.x
+        && x < button.x + button.x2) {
+            console.log(points);
+            if (points == 5) {
+                var message = `PUNTAJE: ${points}/5 \n\nFelicitaciones`;
+            } else {
+                var message = `\t\t\t\tPUNTAJE: ${points}/5 \n\nPresiona OK para mostrar las respuestas correctas`;
+            }
+            if (confirm(message)) {
+                console.log('OK')
+                connections=[[keyList[0], definitionList[3]],
+                            [keyList[1], definitionList[5]],
+                            [keyList[2], definitionList[2]],
+                            [keyList[3], definitionList[7]],
+                            [keyList[4], definitionList[4]]]
+                
+                ctx.clearRect(305, 50, 145, 700)
+                for (let i = 0; i < connections.length; i++) {
+                    drawArrow(ctx, connections[i][0], connections[i][1], 8)
+                }
+            } else {
+                console.log('Cancel')
+            }
+        }
+
+    keyList.forEach(function(block) {
+        if (y > block.y
+            && y < block.y + block.y2
+            && x > block.x
+            && x < block.x + block.x2) {
+                console.log(`clicked on ${block.value}`);
+                if (!block.isActive) {
+                    for (let i = 0; i < keyList.length; i++) {
+                        keyList[i].isActive = false;
+                        keyList[i].draw();
+                    };
+                    block.isActive = true;
+                    block.draw();
+                } else {
+                    block.isActive = false;
+                    block.draw();
+                }
+        }
+    });
+
+    definitionList.forEach(function(block) {
+        if (y > block.y
+            && y < block.y + block.y2
+            && x > block.x
+            && x < block.x + block.x2) {
+                console.log(`clicked on ${block.value}`);
+                if (!block.isActive) {
+                    for (let i = 0; i < definitionList.length; i++) {
+                        definitionList[i].isActive = false;
+                        definitionList[i].draw();
+                    };
+                    block.isActive = true;
+                    block.draw();
+                    
+                } else {
+                    block.isActive = false;
+                    block.draw();
+                }
+        }
+    });
+
+    for (let i = 0; i < definitionList.length; i++) {
+        if (definitionList[i].isActive) {
+            drawTo = definitionList[i];
+            break;
+        }
+    };
+
+    for (let i = 0; i < keyList.length; i++) {
+        if (keyList[i].isActive) {
+            drawFrom = keyList[i];
+            break;
+        }
+    };
+
+    if (drawFrom && drawTo) {
+
+        for (let i = 0; i < connections.length; i++) {
+            if(connections[i][0].value == drawFrom.value) {
+                connections.splice(i, 1)
+            }
+        }
+        for (let i = 0; i < connections.length; i++) {
+            if(connections[i][1].value == drawTo.value) {
+                    connections.splice(i, 1)
+            }
+        }
+
+        connections.push([drawFrom, drawTo])
+        ctx.clearRect(305, 50, 145, 700)
+        for (let i = 0; i < connections.length; i++) {
+            drawArrow(ctx, connections[i][0], connections[i][1], 8)
+        }
+
+        console.log('result', connections)
+    }
+
+});
+
+
+    </script>
+</body>
+
+</html>
